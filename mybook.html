@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Flipbook PRO Suite - Visor Documentos Avanzado</title>
+  <!-- Google Fonts + Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background: linear-gradient(145deg, #1a2a3a 0%, #0f1a24 100%);
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+      transition: background 0.3s ease;
+    }
+
+    /* Modo oscuro/claro */
+    body.dark-mode {
+      background: linear-gradient(145deg, #0a0e1a 0%, #05080f 100%);
+    }
+
+    body.light-mode {
+      background: linear-gradient(145deg, #e8eef2 0%, #d0d8e0 100%);
+    }
+
+    /* ============================================
+       MARCA DE AGUA - Ing. Javier Pulido García
+       ============================================ */
+    .watermark {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 2500;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.35);
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(4px);
+      padding: 6px 14px;
+      border-radius: 30px;
+      letter-spacing: 1px;
+      font-weight: 500;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      border-left: 3px solid #3b82f6;
+    }
+
+    body.light-mode .watermark {
+      color: rgba(0, 0, 0, 0.4);
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .watermark:hover {
+      opacity: 0.8;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Marca de agua diagonal más elegante (opcional - aparece en el centro sutil) */
+    .watermark-diagonal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-25deg);
+      z-index: 2500;
+      font-size: 65px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.03);
+      white-space: nowrap;
+      pointer-events: none;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+    }
+
+    body.light-mode .watermark-diagonal {
+      color: rgba(0, 0, 0, 0.03);
+    }
+
+    .flipbook-container {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(3px);
+      border-radius: 32px;
+      padding: 16px 20px 20px 20px;
+      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.1);
+      transition: all 0.3s;
+    }
+
+    #flipbook {
+      width: 1300px;
+      height: 700px;
+      box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.15);
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+      background: #8b7355;
+      transition: transform 0.3s ease;
+    }
+
+    #flipbook .page-wrapper {
+      background: #fefaf0;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      background: #f4e4bc; 
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+    }
+
+    #flipbook img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background:  #faf0d7;
+      transition: transform 0.08s linear, filter 0.3s ease;
+      display: block;
+      pointer-events: auto;
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 12px;
+      right: 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #4a4f5e;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Barra de progreso */
+    .progress-bar-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.2);
+      z-index: 3000;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec489a);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* Barra de herramientas principal */
+    .toolbar {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18, 25, 35, 0.95);
+      backdrop-filter: blur(16px);
+      border-radius: 60px;
+      padding: 10px 20px;
+      display: flex;
+      gap: 12px;
+      z-index: 2000;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      flex-wrap: wrap;
+      max-width: 95%;
+      justify-content: center;
+    }
+
+    .toolbar-item {
+      background: transparent;
+      border: none;
+      color: #eef4ff;
+      font-size: 20px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .toolbar-item:hover {
+      background: #3b82f6;
+      color: white;
+      transform: scale(1.08);
+    }
+
+    /* Botón de salir con color especial */
+    #exitBtn:hover {
+      background: #dc2626 !important;
+    }
+
+    .goto-input {
+      width: 60px;
+      height: 44px;
+      border-radius: 44px;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      text-align: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .page-indicator, .zoom-badge {
+      width: auto;
+      padding: 0 18px;
+      font-weight: 600;
+    }
+
+    /* Miniaturas */
+    .thumbnails-panel {
+      position: fixed;
+      left: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 280px;
+      max-height: 70vh;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 28px;
+      padding: 16px 12px;
+      z-index: 2100;
+      border: 1px solid rgba(255,255,255,0.25);
+      box-shadow: 0 20px 35px rgba(0,0,0,0.5);
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .thumbnails-panel.show {
+      display: flex;
+    }
+
+    .thumbnail-item {
+      background: rgba(0,0,0,0.5);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: 0.15s;
+      border: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px;
+    }
+
+    .thumbnail-item:hover {
+      border-color: #3b82f6;
+      background: #1e2a3e;
+    }
+
+    .thumbnail-img {
+      width: 50px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    /* Panel de estadísticas */
+    .stats-panel {
+      position: fixed;
+      right: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      color: white;
+      z-index: 2100;
+      min-width: 220px;
+      display: none;
+      border: 1px solid #3b82f6;
+    }
+
+    .stats-panel.show {
+      display: block;
+    }
+
+    .stats-panel h4 {
+      margin-bottom: 12px;
+      color: #3b82f6;
+    }
+
+    /* Marcadores */
+    .bookmarks-panel {
+      position: fixed;
+      right: 30px;
+      bottom: 100px;
+      background: rgba(0,0,0,0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 15px;
+      z-index: 2100;
+      min-width: 180px;
+      display: none;
+    }
+
+    .bookmarks-panel.show {
+      display: block;
+    }
+
+    .bookmark-item {
+      background: #1e293b;
+      color: white;
+      border: none;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Comentarios */
+    .comment-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: #3b82f6;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      z-index: 20;
+      cursor: pointer;
+    }
+
+    /* Lupa */
+    .magnifier {
+      position: fixed;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 3px solid #3b82f6;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      z-index: 3000;
+      display: none;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    .toast-zoom {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      background: #0f172ad9;
+      backdrop-filter: blur(12px);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-size: 14px;
+      z-index: 2200;
+      border-left: 4px solid #3b82f6;
+      pointer-events: none;
+    }
+
+    @media (max-width: 1400px) {
+      #flipbook { width: 1000px; height: 600px; }
+      .toolbar { gap: 8px; padding: 8px 12px; }
+      .toolbar-item { width: 38px; height: 38px; font-size: 18px; }
+    }
+  </style>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+</head>
+<body>
+
+<!-- MARCA DE AGUA - Ing. Javier Pulido García -->
+<div class="watermark">
+  <i class="fas fa-code"></i> Ing. Javier Pulido García
+</div>
+<div class="watermark-diagonal">
+  Ing. Javier Pulido García
+</div>
+
+<div class="progress-bar-container">
+  <div class="progress-bar" id="readingProgress"></div>
+</div>
+
+<div class="flipbook-container">
+  <div id="flipbook"></div>
+</div>
+
+<!-- Barra de herramientas PRO -->
+<div class="toolbar">
+  <button class="toolbar-item" id="prevPageBtn" title="Anterior"><i class="fas fa-chevron-left"></i></button>
+  <div class="toolbar-item page-indicator"><i class="far fa-file-alt"></i> <span id="currentPageSpan">1</span> / <span id="totalPagesSpan">10</span></div>
+  <button class="toolbar-item" id="nextPageBtn" title="Siguiente"><i class="fas fa-chevron-right"></i></button>
+  
+  <input type="number" id="gotoPage" class="goto-input" min="1" max="10" value="1" placeholder="Ir">
+  <button class="toolbar-item" id="gotoBtn" title="Ir a página"><i class="fas fa-forward"></i></button>
+  
+  <button class="toolbar-item" id="zoomInBtn" title="Zoom +"><i class="fas fa-search-plus"></i></button>
+  <button class="toolbar-item" id="zoomOutBtn" title="Zoom -"><i class="fas fa-search-minus"></i></button>
+  <div class="toolbar-item zoom-badge" id="zoomPercentBadge">100%</div>
+  
+  <button class="toolbar-item" id="zoomModeToggleBtn" title="Modo Zoom"><i class="fas fa-hand-pointer"></i></button>
+  <button class="toolbar-item" id="magnifierBtn" title="Lupa"><i class="fas fa-search"></i></button>
+  <button class="toolbar-item" id="thumbnailsBtn" title="Miniaturas"><i class="fas fa-th-large"></i></button>
+  <button class="toolbar-item" id="fullscreenToggleBtn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
+  
+  <button class="toolbar-item" id="presentationBtn" title="Presentación"><i class="fas fa-play"></i></button>
+  <button class="toolbar-item" id="bookmarkBtn" title="Marcador"><i class="fas fa-bookmark"></i></button>
+  <button class="toolbar-item" id="themeToggleBtn" title="Tema"><i class="fas fa-moon"></i></button>
+  <button class="toolbar-item" id="downloadPageBtn" title="Descargar página"><i class="fas fa-download"></i></button>
+  <button class="toolbar-item" id="downloadAllBtn" title="Descargar todo"><i class="fas fa-file-archive"></i></button>
+  <button class="toolbar-item" id="filtersBtn" title="Filtros"><i class="fas fa-filter"></i></button>
+  <button class="toolbar-item" id="rotateBtn" title="Rotar"><i class="fas fa-undo-alt"></i></button>
+  <button class="toolbar-item" id="statsBtn" title="Estadísticas"><i class="fas fa-chart-line"></i></button>
+  <button class="toolbar-item" id="commentBtn" title="Anotación"><i class="fas fa-comment"></i></button>
+  <button class="toolbar-item" id="bookmarksListBtn" title="Mis marcadores"><i class="fas fa-list"></i></button>
+  
+  <!-- Separador visual -->
+  <div style="width:1px; background: rgba(255,255,255,0.3); margin: 6px 0;"></div>
+  
+  <!-- Botón de Salir -->
+  <button class="toolbar-item" id="exitBtn" title="Salir (Alt+X)">
+    <i class="fas fa-power-off"></i>
+  </button>
+</div>
+
+<div id="thumbnailsPanel" class="thumbnails-panel"></div>
+<div id="statsPanel" class="stats-panel"></div>
+<div id="bookmarksPanel" class="bookmarks-panel"></div>
+<div id="zoomToast" class="toast-zoom">Zoom: 100%</div>
+<div id="magnifier" class="magnifier"></div>
+
+<audio id="pageSound" preload="auto">
+  <source src="sound/dragon.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+  $(document).ready(function() {
+    // ============================================
+    // CONFIGURACIÓN INICIAL
+    // ============================================
+    const TOTAL_PAGES = 14;
+    const flipbook = $("#flipbook");
+    let currentTurnPage = 1;
+    let zoomModeActive = false;
+    let zoomLevel = 1;
+    let isDraggingImg = false;
+    let dragStartX = 0, dragStartY = 0;
+    let translateX = 0, translateY = 0;
+    let activeZoomedImg = null;
+    let zoomOriginX = 0, zoomOriginY = 0;
+    let autoPlayInterval = null;
+    let isAutoPlaying = false;
+    let rotation = 0;
+    let magnifierActive = false;
+    let pageViews = new Array(TOTAL_PAGES).fill(0);
+    let startTime = Date.now();
+    let bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
+    let comments = JSON.parse(localStorage.getItem("comments") || "{}");
+    let currentFilter = 0;
+    const filters = ["none", "sepia(0.8)", "grayscale(1)", "blur(2px)", "brightness(1.2)", "contrast(1.3)"];
+
+    // ============================================
+    // CONSTRUIR FLIPBOOK
+    // ============================================
+    flipbook.empty();
+    for (let i = 0; i < TOTAL_PAGES; i++) {
+      let imgUrl = `pages/page_${i}.jpg`;
+      let hasComment = comments[i+1] ? '<div class="comment-badge">📝</div>' : '';
+      flipbook.append(`
+        <div class="page-wrapper" data-page="${i+1}">
+          <img src="${imgUrl}" alt="Página ${i+1}" class="page-img" data-page="${i+1}"
+               onerror="this.src='https://picsum.photos/id/20/1300/900'">
+          <div class="page-number">${i+1}</div>
+          ${hasComment}
+        </div>
+      `);
+    }
+
+    flipbook.turn({
+      width: 1300,
+      height: 700,
+      autoCenter: true,
+      display: 'double',
+      gradients: true,
+      elevation: 50,
+      duration: 600,
+      when: {
+        turned: function(e, page) {
+          let view = $(this).turn('view');
+          currentTurnPage = view[0] ? view[0] : 1;
+          updatePageCounter();
+          updateProgress();
+          resetZoomState();
+          pageViews[currentTurnPage - 1]++;
+          updateStats();
+          let sound = document.getElementById("pageSound");
+          if(sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("audio no disponible"));
+          }
+        }
+      }
+    });
+    flipbook.turn("page", 1);
+
+    // ============================================
+    // FUNCIONES PRINCIPALES
+    // ============================================
+    function updatePageCounter() {
+      $("#currentPageSpan").text(currentTurnPage);
+      $("#totalPagesSpan").text(TOTAL_PAGES);
+      $("#gotoPage").attr("max", TOTAL_PAGES);
+    }
+
+    function updateProgress() {
+      let progress = (currentTurnPage / TOTAL_PAGES) * 100;
+      $("#readingProgress").css("width", progress + "%");
+    }
+
+    function updateStats() {
+      let elapsed = Math.floor((Date.now() - startTime) / 1000);
+      let mostViewed = Math.max(...pageViews);
+      let mostViewedPage = pageViews.indexOf(mostViewed) + 1;
+      $("#statsPanel").html(`
+        <h4><i class="fas fa-chart-line"></i> Estadísticas</h4>
+        <p>📖 Página actual: ${currentTurnPage}/${TOTAL_PAGES}</p>
+        <p>⏱️ Tiempo: ${Math.floor(elapsed / 60)}m ${elapsed % 60}s</p>
+        <p>👁️ Más visitada: Pág ${mostViewedPage} (${mostViewed} veces)</p>
+        <p>📌 Marcadores: ${bookmarks.length}</p>
+        <p>💬 Notas: ${Object.keys(comments).length}</p>
+      `);
+    }
+
+    function resetZoomState() {
+      if(activeZoomedImg) {
+        activeZoomedImg.css("transform", "none").removeClass("zoomed-active");
+        activeZoomedImg = null;
+      }
+      zoomLevel = 1;
+      translateX = translateY = 0;
+      updateZoomUI();
+      $(".page-img").css("transform", "none").removeClass("zoomed-active");
+    }
+
+    function updateZoomUI() {
+      let percent = Math.round(zoomLevel * 100);
+      $("#zoomPercentBadge").html(`${percent}%`);
+      $("#zoomToast").text(`Zoom: ${percent}%`).fadeIn(150).delay(800).fadeOut(400);
+    }
+
+    function toastTemporary(msg, duration = 1500) {
+      $("#zoomToast").text(msg).fadeIn(150).delay(duration).fadeOut(400);
+    }
+
+    function applyZoomToCurrentImage(delta) {
+      if(!zoomModeActive) {
+        toastTemporary("🔍 Activa modo zoom primero (icono mano)", 1000);
+        return;
+      }
+      let targetImg = $(`.page-img[data-page="${currentTurnPage}"]`);
+      if(!targetImg.length) return;
+      
+      if(activeZoomedImg !== targetImg[0]) {
+        if(activeZoomedImg) $(activeZoomedImg).css("transform", "none").removeClass("zoomed-active");
+        activeZoomedImg = targetImg;
+        activeZoomedImg.addClass("zoomed-active");
+        let rect = activeZoomedImg[0].getBoundingClientRect();
+        zoomOriginX = rect.width / 2;
+        zoomOriginY = rect.height / 2;
+        activeZoomedImg.css("transform-origin", `${zoomOriginX}px ${zoomOriginY}px`);
+      }
+      
+      zoomLevel = Math.min(4, Math.max(0.6, zoomLevel + delta));
+      if(activeZoomedImg) {
+        activeZoomedImg.css("transform", `scale(${zoomLevel}) translate(${translateX/zoomLevel}px, ${translateY/zoomLevel}px)`);
+      }
+      updateZoomUI();
+    }
+
+    // ============================================
+    // EVENTOS DE LA BARRA
+    // ============================================
+    $("#prevPageBtn").click(() => { flipbook.turn("previous"); resetZoomState(); });
+    $("#nextPageBtn").click(() => { flipbook.turn("next"); resetZoomState(); });
+    
+    $("#gotoBtn").click(() => {
+      let page = parseInt($("#gotoPage").val());
+      if(page >= 1 && page <= TOTAL_PAGES) flipbook.turn("page", page);
+    });
+
+    $("#zoomInBtn").click(() => applyZoomToCurrentImage(0.2));
+    $("#zoomOutBtn").click(() => applyZoomToCurrentImage(-0.2));
+
+    $("#zoomModeToggleBtn").click(function() {
+      zoomModeActive = !zoomModeActive;
+      $(this).css("background", zoomModeActive ? "#3b82f6" : "rgba(255,255,255,0.05)");
+      toastTemporary(zoomModeActive ? "✅ Modo Zoom activado" : "Modo Zoom desactivado");
+      if(!zoomModeActive) resetZoomState();
+    });
+
+    // Lupa
+    $("#magnifierBtn").click(function() {
+      magnifierActive = !magnifierActive;
+      $(this).css("background", magnifierActive ? "#3b82f6" : "rgba(255,255,255,0.05)");
+      toastTemporary(magnifierActive ? "🔍 Lupa activada" : "Lupa desactivada");
+      if(!magnifierActive) $("#magnifier").hide();
+    });
+
+    $("#flipbook").on("mousemove", ".page-img", function(e) {
+      if(magnifierActive && !zoomModeActive) {
+        let img = $(this);
+        let offset = img.offset();
+        let x = (e.pageX - offset.left) / img.width() * 100;
+        let y = (e.pageY - offset.top) / img.height() * 100;
+        $("#magnifier").css({
+          left: e.pageX - 100,
+          top: e.pageY - 100,
+          display: "block",
+          backgroundImage: `url(${img.attr("src")})`,
+          backgroundPosition: `${x}% ${y}%`,
+          backgroundSize: `${img.width() * 2.5}px ${img.height() * 2.5}px`
+        });
+      }
+    }).on("mouseleave", () => { if(magnifierActive) $("#magnifier").fadeOut(200); });
+
+    // Miniaturas
+    $("#thumbnailsBtn").click(function() {
+      let panel = $("#thumbnailsPanel");
+      if(panel.hasClass("show")) {
+        panel.removeClass("show");
+      } else {
+        if(panel.children().length === 0) {
+          for(let i = 1; i <= TOTAL_PAGES; i++) {
+            let imgSrc = $(`.page-img[data-page="${i}"]`).attr("src");
+            panel.append(`
+              <div class="thumbnail-item" data-page="${i}">
+                <img class="thumbnail-img" src="${imgSrc}">
+                <span class="thumbnail-label">Página ${i}</span>
+              </div>
+            `);
+          }
+          $(".thumbnail-item").click(function() {
+            flipbook.turn("page", $(this).data("page"));
+            panel.removeClass("show");
+          });
+        }
+        panel.addClass("show");
+      }
+    });
+
+    // Pantalla completa
+    $("#fullscreenToggleBtn").click(() => {
+      if(!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        $("#fullscreenToggleBtn i").removeClass("fa-expand").addClass("fa-compress");
+      } else {
+        document.exitFullscreen();
+        $("#fullscreenToggleBtn i").removeClass("fa-compress").addClass("fa-expand");
+      }
+    });
+
+    // Presentación automática
+    $("#presentationBtn").click(function() {
+      if(isAutoPlaying) {
+        clearInterval(autoPlayInterval);
+        isAutoPlaying = false;
+        $(this).html('<i class="fas fa-play"></i>');
+        toastTemporary("Presentación pausada");
+      } else {
+        autoPlayInterval = setInterval(() => {
+          if(currentTurnPage < TOTAL_PAGES) flipbook.turn("next");
+          else flipbook.turn("page", 1);
+        }, 3000);
+        isAutoPlaying = true;
+        $(this).html('<i class="fas fa-pause"></i>');
+        toastTemporary("Presentación iniciada (3s/página)");
+      }
+    });
+
+    // Marcadores
+    $("#bookmarkBtn").click(() => {
+      if(!bookmarks.includes(currentTurnPage)) {
+        bookmarks.push(currentTurnPage);
+        localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
+        toastTemporary(`📌 Página ${currentTurnPage} agregada a marcadores`);
+        updateBookmarksList();
+      } else {
+        toastTemporary(`⚠️ Página ${currentTurnPage} ya está en marcadores`);
+      }
+    });
+
+    function updateBookmarksList() {
+      let list = $("#bookmarksPanel");
+      list.empty();
+      list.append('<h4 style="color:#3b82f6; margin-bottom:10px;">📖 Mis Marcadores</h4>');
+      bookmarks.forEach(page => {
+        list.append(`<button class="bookmark-item" data-page="${page}">📄 Página ${page}</button>`);
+      });
+      $(".bookmark-item").click(function() {
+        flipbook.turn("page", $(this).data("page"));
+        $("#bookmarksPanel").removeClass("show");
+      });
+    }
+
+    $("#bookmarksListBtn").click(() => {
+      $("#bookmarksPanel").toggleClass("show");
+      updateBookmarksList();
+    });
+
+    // Tema oscuro/claro
+    let currentTheme = localStorage.getItem("theme") || "dark";
+    if(currentTheme === "light") $("body").addClass("light-mode");
+    $("#themeToggleBtn").click(() => {
+      $("body").toggleClass("light-mode");
+      let isLight = $("body").hasClass("light-mode");
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+      $("#themeToggleBtn i").toggleClass("fa-moon fa-sun");
+      toastTemporary(isLight ? "☀️ Modo claro" : "🌙 Modo oscuro");
+    });
+
+    // Descargar página actual
+    $("#downloadPageBtn").click(() => {
+      let imgSrc = $(`.page-img[data-page="${currentTurnPage}"]`).attr("src");
+      let link = document.createElement("a");
+      link.download = `pagina_${currentTurnPage}.jpg`;
+      link.href = imgSrc;
+      link.click();
+      toastTemporary(`📥 Descargando página ${currentTurnPage}`);
+    });
+
+    // Descargar todo en ZIP
+    $("#downloadAllBtn").click(async () => {
+      let zip = new JSZip();
+      for(let i = 1; i <= TOTAL_PAGES; i++) {
+        let imgSrc = $(`.page-img[data-page="${i}"]`).attr("src");
+        let response = await fetch(imgSrc);
+        let blob = await response.blob();
+        zip.file(`pagina_${i}.jpg`, blob);
+      }
+      let content = await zip.generateAsync({type: "blob"});
+      saveAs(content, "flipbook_pages.zip");
+      toastTemporary("📦 Descargando todas las páginas...");
+    });
+
+    // Filtros de imagen
+    $("#filtersBtn").click(() => {
+      currentFilter = (currentFilter + 1) % filters.length;
+      let filterValue = filters[currentFilter];
+      $(`.page-img[data-page="${currentTurnPage}"]`).css("filter", filterValue);
+      toastTemporary(`🎨 Filtro: ${filterValue}`);
+    });
+
+    // Rotar
+    $("#rotateBtn").click(() => {
+      rotation = (rotation + 90) % 360;
+      $("#flipbook").css("transform", `rotate(${rotation}deg)`);
+      toastTemporary(`🔄 Rotación: ${rotation}°`);
+    });
+
+    // Estadísticas
+    $("#statsBtn").click(() => {
+      updateStats();
+      $("#statsPanel").toggleClass("show");
+    });
+
+    // Comentarios/Anotaciones
+    $("#commentBtn").click(() => {
+      let comment = prompt("✏️ Escribe una nota para esta página:", comments[currentTurnPage] || "");
+      if(comment !== null) {
+        if(comment.trim()) {
+          comments[currentTurnPage] = comment;
+          localStorage.setItem("comments", JSON.stringify(comments));
+          if(!$(`.page-wrapper[data-page="${currentTurnPage}"] .comment-badge`).length) {
+            $(`.page-wrapper[data-page="${currentTurnPage}"]`).append('<div class="comment-badge">📝</div>');
+          }
+          toastTemporary(`💬 Nota guardada en página ${currentTurnPage}`);
+        } else if(comments[currentTurnPage]) {
+          delete comments[currentTurnPage];
+          localStorage.setItem("comments", JSON.stringify(comments));
+          $(`.page-wrapper[data-page="${currentTurnPage}"] .comment-badge`).remove();
+          toastTemporary("Nota eliminada");
+        }
+      }
+    });
+// ============================================
+// BOTÓN DE SALIR - VERSIÓN ULTRA COMPATIBLE
+// ============================================
+$("#exitBtn").on("click", function() {
+    const confirmExit = confirm("🔒 ¿Estás seguro de que deseas salir?");
+    
+    if (!confirmExit) return;
+    
+    // Guardar datos antes de salir
+    localStorage.setItem("lastPage", currentTurnPage);
+    localStorage.setItem("lastTheme", $("body").hasClass("light-mode") ? "light" : "dark");
+    
+    toastTemporary("👋 ¡Cerrando aplicación...", 1000);
+    
+    // MÉTODO 1: Cierre por API de NW.js / Electron
+    if (typeof nw !== 'undefined' && nw.App) {
+        nw.App.quit();
+        return;
+    }
+    
+    // MÉTODO 2: Cierre por API de WebView2 (HTML2EXE moderno)
+    if (typeof chrome !== 'undefined' && chrome.webview) {
+        chrome.webview.postMessage('close');
+        setTimeout(() => { window.close(); }, 100);
+        return;
+    }
+    
+    // MÉTODO 3: Cierre por API de HTML2EXE clásico
+    if (typeof external !== 'undefined' && typeof external.closeApp === 'function') {
+        external.closeApp();
+        return;
+    }
+    
+    if (typeof window.HTMLPackHelper !== 'undefined') {
+        if (window.HTMLPackHelper.onQuit) {
+            window.HTMLPackHelper.onQuit = () => true;
+        }
+        if (typeof window.HTMLPackHelper.quit === 'function') {
+            window.HTMLPackHelper.quit();
+        }
+        window.close();
+        return;
+    }
+    
+    // MÉTODO 4: Cierre por API de IE / ActiveX (legado)
+    try {
+        if (typeof window.external !== 'undefined') {
+            window.external.Close();
+        }
+    } catch(e) {}
+    
+    // MÉTODO 5: Forzar cierre con window.close()
+    window.close();
+    
+    // MÉTODO 6: Si aún no cerró, intentar con msik (algunos empaquetadores)
+    try {
+        var obj = new ActiveXObject("WScript.Shell");
+        obj.SendKeys("%{F4}");
+    } catch(e) {}
+    
+    // MÉTODO 7: Último recurso - limpiar DOM y lanzar error
+    setTimeout(function() {
+        try {
+            // Vaciar completamente el body
+            document.body.innerHTML = '<div style="text-align:center; padding:50px; font-family:monospace;">Cerrando aplicación...<br><br>Si no cierra, presiona Alt+F4</div>';
+            document.body.style.background = "#1a1a2e";
+            
+            // Eliminar todos los timers
+            for(var i = 0; i < 10000; i++) {
+                clearInterval(i);
+                clearTimeout(i);
+            }
+            
+            // Lanzar error fatal
+            throw new Error("FORCE_CLOSE");
+        } catch(e) {
+            console.log("Cerrando forzadamente...");
+        }
+    }, 100);
+    
+    // Mensaje de respaldo después de 2 segundos
+    setTimeout(() => {
+        alert("⚠️ La aplicación no pudo cerrarse automáticamente.\n\n➡️ Presiona ctrl+F4 para cerrar manualmente.\n\n© Ing. Hendrik Liapunov");
+    }, 2000);
+});
+    // Zoom con rueda
+    $(window).on("wheel", function(e) {
+      if(zoomModeActive && activeZoomedImg && zoomLevel > 1) {
+        let delta = e.originalEvent.deltaY < 0 ? 0.12 : -0.12;
+        applyZoomToCurrentImage(delta);
+        e.preventDefault();
+      } else if(!zoomModeActive && !magnifierActive) {
+        if(e.originalEvent.deltaY < 0) flipbook.turn("previous");
+        else flipbook.turn("next");
+        e.preventDefault();
+      }
+    });
+
+    // Atajos de teclado adicionales
+    $(document).on("keydown", function(e) {
+      switch(e.key) {
+        case "ArrowLeft": flipbook.turn("previous"); break;
+        case "ArrowRight": flipbook.turn("next"); break;
+        case "Home": flipbook.turn("page", 1); break;
+        case "End": flipbook.turn("page", TOTAL_PAGES); break;
+        case "+": applyZoomToCurrentImage(0.2); break;
+        case "-": applyZoomToCurrentImage(-0.2); break;
+        case "f": $("#fullscreenToggleBtn").click(); break;
+        case "t": $("#thumbnailsBtn").click(); break;
+        case "z": $("#zoomModeToggleBtn").click(); break;
+        case "Escape": 
+          if(isAutoPlaying) $("#presentationBtn").click();
+          $(".show").removeClass("show");
+          break;
+      }
+    });
+
+    // Clic en imagen para zoom
+    $("#flipbook").on("click", ".page-img", function(e) {
+      if(zoomModeActive) {
+        e.stopPropagation();
+        let img = $(this);
+        if(activeZoomedImg && activeZoomedImg[0] === img[0] && zoomLevel > 1) return;
+        if(activeZoomedImg) $(activeZoomedImg).css("transform", "none").removeClass("zoomed-active");
+        activeZoomedImg = img;
+        activeZoomedImg.addClass("zoomed-active");
+        let offset = img.offset();
+        zoomOriginX = e.pageX - offset.left;
+        zoomOriginY = e.pageY - offset.top;
+        zoomLevel = 1.8;
+        translateX = translateY = 0;
+        activeZoomedImg.css("transform-origin", `${zoomOriginX}px ${zoomOriginY}px`);
+        activeZoomedImg.css("transform", `scale(${zoomLevel})`);
+        updateZoomUI();
+        
+        activeZoomedImg.off("mousedown").on("mousedown", function(ev) {
+          if(zoomModeActive && zoomLevel > 1.2) {
+            isDraggingImg = true;
+            dragStartX = ev.pageX - translateX;
+            dragStartY = ev.pageY - translateY;
+            activeZoomedImg.addClass("dragging");
+            ev.preventDefault();
+          }
+        });
+      }
+    });
+
+    $(document).on("mousemove", function(e) {
+      if(isDraggingImg && zoomModeActive && activeZoomedImg) {
+        translateX = e.pageX - dragStartX;
+        translateY = e.pageY - dragStartY;
+        activeZoomedImg.css("transform", `scale(${zoomLevel}) translate(${translateX/zoomLevel}px, ${translateY/zoomLevel}px)`);
+      }
+    }).on("mouseup", () => {
+      if(isDraggingImg) {
+        isDraggingImg = false;
+        if(activeZoomedImg) activeZoomedImg.removeClass("dragging");
+      }
+    });
+
+    $(document).on("click", (e) => {
+      if(!$(e.target).closest(".thumbnails-panel").length && !$(e.target).closest("#thumbnailsBtn").length)
+        $("#thumbnailsPanel").removeClass("show");
+      if(!$(e.target).closest("#statsBtn").length && !$(e.target).closest("#statsPanel").length)
+        $("#statsPanel").removeClass("show");
+      if(!$(e.target).closest("#bookmarksListBtn").length && !$(e.target).closest("#bookmarksPanel").length)
+        $("#bookmarksPanel").removeClass("show");
+    });
+
+    updatePageCounter();
+    updateStats();
+    updateBookmarksList();
+    console.log("✅ Flipbook PRO Suite - Desarrollado por Ing. Javier Pulido García");
+  });
+</script>
+</body>
+</html>
