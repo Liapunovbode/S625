@@ -489,7 +489,7 @@
     // ============================================
     flipbook.empty();
     for (let i = 0; i < TOTAL_PAGES; i++) {
-      let imgUrl = `pages/page_${i}.jpg`;
+      let imgUrl = `page_${i}.jpg`;
       let hasComment = comments[i+1] ? '<div class="comment-badge">📝</div>' : '';
       flipbook.append(`
         <div class="page-wrapper" data-page="${i+1}">
